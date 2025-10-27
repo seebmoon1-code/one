@@ -1,0 +1,84 @@
+use ffmpeg_next as ffmpeg;
+use anyhow::{Result, Context};
+use std::env;
+
+// تعریف یک نوع خطا برای ساده سازی 
+type FFResult<T> = std::result::Result<T, ffmpeg::Error>;
+
+fn main() -> Result<()> {
+    // ۱. مقداردهی اولیه به FFmpeg
+    // این کار باید قبل از هر استفاده دیگری از FFmpeg انجام شود.
+    ffmpeg::init().context("Failed to initialize FFmpeg")?;
+
+    println!("\n--- برنامه app1: تست دیکدینگ فایل TS ---");
+
+    // ۲. دریافت مسیر فایل از آرگومان‌های خط فرمان
+    let args: Vec<String> = env::args().collect();
+    if args.len() < 2 {
+        println!("\nلطفاً مسیر فایل TS را به عنوان آرگومان وارد کنید.");
+        println!("مثال: cargo run -- /مسیر/به/فایل/شما.ts");
+        return Ok(());
+    }
+    let filepath = &args[1];
+
+    // ۳. باز کردن فایل ورودی
+    let mut ictx = match ffmpeg::format::input(&std::path::Path::new(filepath)) {
+        Ok(ictx) => ictx,
+        Err(e) => {
+            eprintln!("خطا در باز کردن فایل '{}': {:?}", filepath, e);
+            return Err(anyhow::Error::new(e));
+        }
+    };
+
+    // ۴. پیدا کردن استریم (جریان) ویدیو
+    let input_stream = ictx.streams().into_iter().find(|s| {
+        s.parameters().codec_type() == ffmpeg::media::Type::Video
+    }).context("فایل ورودی فاقد جریان ویدیویی است.")?;
+
+    let video_index = input_stream.index();
+    let video_codec_params = input_stream.parameters();
+
+    // ۵. پیدا کردن و باز کردن دیکودر
+    let video_codec = ffmpeg::codec::find(video_codec_params.codec_id())
+        .context("کدک ویدیویی یافت نشد.")?;
+
+    let mut decoder = video_codec.decoder().open_as(video_codec_params)
+        .context("خطا در باز کردن دیکودر.")?;
+
+    println!("✔ اطلاعات فایل TS:");
+    println!("  - کدک ویدیو: {}", video_codec.name());
+    println!("  - رزولوشن: {}x{}", decoder.width(), decoder.height());
+
+    let mut frame_count = 0;
+    let mut frame = ffmpeg::frame::Video::empty();
+
+    // ۶. حلقه اصلی: خواندن بسته‌ها (Packet) و دیکودینگ آن‌ها به فریم‌ها
+    for (stream, packet) in ictx.packets() {
+        if stream.index() == video_index {
+            // ارسال بسته به دیکودر
+            decoder.send_packet(&packet)?;
+
+            // دریافت فریم‌های دیکد شده
+            while decoder.receive_frame(&mut frame).is_ok() {
+                frame_count += 1;
+                if frame_count <= 5 { // فقط اطلاعات چند فریم اول را نمایش می دهیم
+                    println!("  -> فریم ویدیو دیکد شده: #{} (رزولوشن: {}x{})", 
+                        frame_count, frame.width(), frame.height());
+                }
+            }
+        }
+        if frame_count >= 10 { // برای جلوگیری از اجرای طولانی، بعد از ۱۰ فریم متوقف می شویم
+            break;
+        }
+    }
+
+    // ۷. تخلیه باقیمانده دیکودر (Flush)
+    decoder.send_eof()?;
+    while decoder.receive_frame(&mut frame).is_ok() {
+         frame_count += 1;
+    }
+
+    println!("\n✔ دیکدینگ با موفقیت انجام شد. مجموع فریم‌های پردازش شده: {}", frame_count);
+
+    Ok(())
+}
