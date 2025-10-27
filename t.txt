@@ -1,97 +1,12 @@
-use ffmpeg_next as ffmpeg;
-use anyhow::{Result, Context, anyhow};
-use std::env;
-use std::path::Path;
-
-fn main() -> Result<()> {
-    // ۱. مقداردهی اولیه به FFmpeg
-    ffmpeg::init().context("خطا در راه‌اندازی FFmpeg.")?;
-    
-    println!("\n--- اپلیکیشن app1: تست دیکدینگ فایل TS ---");
-
-    // ۲. دریافت مسیر فایل از آرگومان‌های خط فرمان
-    let args: Vec<String> = env::args().collect();
-    if args.len() < 2 {
-        println!("\n❌ لطفاً مسیر فایل TS را به عنوان آرگومان وارد کنید. مثال: cargo run -- ./1.ts");
-        return Ok(());
-    }
-    let filepath = &args[1];
-    
-    // ۳. باز کردن فایل ورودی
-    let path = Path::new(filepath);
-    let mut ictx = match ffmpeg::format::input(&path) {
-        Ok(ictx) => ictx,
-        Err(e) => {
-            return Err(anyhow!("❌ خطا در باز کردن فایل '{}': {}", filepath, e));
-        }
-    };
-    
-    // ۴. پیدا کردن استریم (جریان) ویدیو
-    // برای بیشترین سازگاری، از متد parameters().kind() استفاده می‌کنیم.
-    // اگر باز هم خطا داد، باید متد را به s.parameters().codec_type() برگردانیم.
-    let stream_index = ictx.streams().into_iter()
-        .position(|s| {
-            // امتحان کردن kind() و codec_type() به صورت fallback 
-            // در حالت معمول یکی از این دو کار می‌کند.
-            match s.parameters().kind() {
-                ffmpeg::media::Type::Video => true,
-                _ => false,
-            }
-        }) 
-        .context("❌ فایل ورودی فاقد جریان ویدیویی است. نوع فایل را بررسی کنید.")?;
-
-    let input_stream = ictx.stream(stream_index)
-        .context("❌ خطا در دسترسی به استریم ویدیو.")?;
-        
-    let video_codec_params = input_stream.parameters();
-    
-    // ۵. پیدا کردن و باز کردن دیکودر
-    // آخرین تلاش برای استخراج ID کدک. این متد معمولاً ثابت‌ترین متد است.
-    let codec_id = video_codec_params.id(); 
-
-    let video_codec = ffmpeg::codec::find(codec_id)
-        .context(format!("❌ کدک ویدیویی با ID {:?} یافت نشد. ممکن است کدک پشتیبانی نشود.", codec_id))?;
-            
-    let mut decoder = video_codec.decoder().open_as(video_codec_params)
-        .context("❌ خطا در باز کردن دیکودر.")?;
-
-    println!("✔ اطلاعات فایل TS:");
-    println!("  - کدک ویدیو: {}", video_codec.name());
-    println!("  - رزولوشن: {}x{}", decoder.width(), decoder.height());
-    
-    let mut frame_count = 0;
-    let mut frame = ffmpeg::frame::Video::empty();
-    
-    // ۶. حلقه اصلی: خواندن بسته‌ها (Packet) و دیکودینگ آن‌ها به فریم‌ها
-    for (stream, packet) in ictx.packets() {
-        if stream.index() == stream_index {
-            // ارسال بسته به دیکودر
-            if let Err(e) = decoder.send_packet(&packet) {
-                eprintln!("خطا در ارسال بسته: {}", e);
-                continue;
-            }
-            
-            // دریافت فریم‌های دیکد شده
-            while decoder.receive_frame(&mut frame).is_ok() {
-                frame_count += 1;
-                if frame_count <= 5 { // فقط اطلاعات چند فریم اول را نمایش می دهیم
-                    println!("  -> فریم ویدیو دیکد شده: #{} (PTS: {})", 
-                        frame_count, frame.pts().unwrap_or(0));
-                }
-            }
-        }
-        if frame_count >= 10 { // برای جلوگیری از اجرای طولانی، بعد از ۱۰ فریم متوقف می شویم
-            break;
-        }
-    }
-    
-    // ۷. تخلیه باقیمانده دیکودر (Flush)
-    decoder.send_eof()?;
-    while decoder.receive_frame(&mut frame).is_ok() {
-         frame_count += 1;
-    }
-
-    println!("\n✅ دیکدینگ با موفقیت انجام شد. مجموع فریم‌های پردازش شده: {}", frame_count);
-    
-    Ok(())
+{
+  "name": "app1-tauri",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }
