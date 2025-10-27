@@ -1,0 +1,2 @@
+sudo apt update
+sudo apt install libavformat-dev libavcodec-dev libavutil-dev
