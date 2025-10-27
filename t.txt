@@ -1,28 +1,17 @@
-# src-tauri/Cargo.toml
-
-[package]
-name = "app1"
-version = "0.1.0"
-edition = "2021"
-
-# این بخش تضمین می کند که Cargo فایل src/main.rs را به عنوان برنامه اصلی می شناسد
-[[bin]]
-name = "app1"
-path = "src/main.rs"
+# src-tauri/Cargo.toml (فقط بخش های زیر را تغییر دهید)
 
 [build-dependencies]
-tauri-build = { version = "2.0.0-beta", features = [] }
+tauri-build = { version = "1.0", features = [] } # از 2.0.0-beta به 1.0 تغییر یافت
 
 [dependencies]
-# وابستگی های FFmpeg
-ffmpeg-next = "6.0.0" 
-anyhow = "1.0"
+# ... وابستگی‌های دیگر (ffmpeg-next و anyhow دست نخورده باقی می‌مانند) ...
 
 # وابستگی های Tauri
-tauri = { version = "2.0.0-beta", features = [
+tauri = { version = "1.6", features = [ # از 2.0.0-beta به 1.6 تغییر یافت
     "dialog-open",
     "fs",
     "wry",
+    "dev" # برای حالت توسعه (dev)
 ] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
