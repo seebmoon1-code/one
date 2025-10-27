@@ -1,2 +1,28 @@
+[package]
+name = "app1"
+version = "0.1.0"
+edition = "2021"
+
+# این بخش تضمین می کند که Cargo فایل src/main.rs را به عنوان برنامه اصلی می شناسد
+[[bin]]
+name = "app1"
+path = "src/main.rs"
+
+# حذف features = [] از tauri-build برای حل مشکل ناسازگاری نسخه
 [build-dependencies]
-tauri-build = { version = "1.0" } # حذف ویژگی های خالی
+tauri-build = { version = "1.0" } 
+
+[dependencies]
+# وابستگی های FFmpeg
+ffmpeg-next = "6.0.0" 
+anyhow = "1.0"
+
+# وابستگی های Tauri (نسخه پایدار V1)
+tauri = { version = "1.6", features = [
+    "dialog-open",
+    "fs",
+    "wry",
+    "dev" # برای حالت توسعه (dev)
+] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
