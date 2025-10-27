@@ -1,0 +1,11 @@
+[package]
+name = "app1"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# پل ارتباطی با کتابخانه‌های قدرتمند FFmpeg برای دیکودینگ ویدیو و صوت
+ffmpeg-next = "6.0.0" 
+
+# برای مدیریت ساده خطاها 
+anyhow = "1.0"
