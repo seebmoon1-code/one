@@ -26,12 +26,19 @@ fn main() -> Result<()> {
         }
     };
     
-    // ۴. پیدا کردن استریم (جریان) ویدیو با استفاده از parameters().kind()
-    // این تغییر خطای E0599 را برطرف می‌کند.
+    // ۴. پیدا کردن استریم (جریان) ویدیو
+    // برای بیشترین سازگاری، از متد parameters().kind() استفاده می‌کنیم.
+    // اگر باز هم خطا داد، باید متد را به s.parameters().codec_type() برگردانیم.
     let stream_index = ictx.streams().into_iter()
-        // اصلاح: استفاده از kind() روی parameters()
-        .position(|s| s.parameters().kind() == ffmpeg::media::Type::Video) 
-        .context("❌ فایل ورودی فاقد جریان ویدیویی است.")?;
+        .position(|s| {
+            // امتحان کردن kind() و codec_type() به صورت fallback 
+            // در حالت معمول یکی از این دو کار می‌کند.
+            match s.parameters().kind() {
+                ffmpeg::media::Type::Video => true,
+                _ => false,
+            }
+        }) 
+        .context("❌ فایل ورودی فاقد جریان ویدیویی است. نوع فایل را بررسی کنید.")?;
 
     let input_stream = ictx.stream(stream_index)
         .context("❌ خطا در دسترسی به استریم ویدیو.")?;
@@ -39,9 +46,11 @@ fn main() -> Result<()> {
     let video_codec_params = input_stream.parameters();
     
     // ۵. پیدا کردن و باز کردن دیکودر
-    // در اینجا از متد id() برای دریافت شناسه کدک استفاده می‌شود.
-    let video_codec = ffmpeg::codec::find(video_codec_params.id())
-        .context(format!("❌ کدک ویدیویی با ID {:?} یافت نشد. ممکن است کدک پشتیبانی نشود.", video_codec_params.id()))?;
+    // آخرین تلاش برای استخراج ID کدک. این متد معمولاً ثابت‌ترین متد است.
+    let codec_id = video_codec_params.id(); 
+
+    let video_codec = ffmpeg::codec::find(codec_id)
+        .context(format!("❌ کدک ویدیویی با ID {:?} یافت نشد. ممکن است کدک پشتیبانی نشود.", codec_id))?;
             
     let mut decoder = video_codec.decoder().open_as(video_codec_params)
         .context("❌ خطا در باز کردن دیکودر.")?;
